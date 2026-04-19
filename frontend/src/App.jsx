@@ -980,14 +980,14 @@ function App() {
     };
     pollStatus();
 
-    const logInterval = setInterval(async () => {
-      const logData = await api('/log')
-      if (logData?.logs) setLogs(logData.logs)
-    }, 2000)
+    const eventSource = new EventSource('/events')
+    eventSource.onmessage = (e) => {
+      setLogs(prev => [...prev, e.data].slice(-100))
+    }
 
     return () => { 
       clearTimeout(statusTimeout)
-      clearInterval(logInterval)
+      eventSource.close()
     }
   }, [])
 

@@ -16,6 +16,8 @@
 #include <microhttpd.h>
 
 #include <stdarg.h>
+#include <pthread.h>
+#include <errno.h>
 #include "next_menu.h"
 #include "assets_index_html.h"
 #include "payload_mgr.h"
@@ -27,6 +29,10 @@
 static char log_buffer[MAX_LOG_LINES][MAX_LOG_LINE_LEN];
 static int log_head = 0;
 static int log_count = 0;
+static pthread_mutex_t log_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t log_cond = PTHREAD_COND_INITIALIZER;
+static int log_updated = 0;
+
 static volatile sig_atomic_t resume_flag = 0;
 
 void handle_sigcont(int sig) {
@@ -52,12 +58,76 @@ void nm_log(const char *fmt, ...) {
 
     if (len == 0) return;
 
-    /* Add to circular buffer */
+    /* Add to circular buffer with lock */
+    pthread_mutex_lock(&log_mutex);
     strncpy(log_buffer[log_head], line, MAX_LOG_LINE_LEN);
     log_head = (log_head + 1) % MAX_LOG_LINES;
     if (log_count < MAX_LOG_LINES) log_count++;
+    
+    /* Signal SSE clients */
+    log_updated++;
+    pthread_cond_broadcast(&log_cond);
+    pthread_mutex_unlock(&log_mutex);
+}
+/* SSE Log Callback */
+struct LogSSEConnection {
+    int last_log_version;
+    int sent_initial;
+};
+
+static ssize_t log_stream_callback(void *cls, uint64_t pos, char *buf, size_t max) {
+    struct LogSSEConnection *conn = (struct LogSSEConnection *)cls;
+    
+    pthread_mutex_lock(&log_mutex);
+    
+    /* Initial catch-up */
+    if (!conn->sent_initial) {
+        char initial_batch[MAX_LOG_LINES * (MAX_LOG_LINE_LEN + 16)];
+        size_t offset = 0;
+        
+        for (int i = 0; i < log_count; i++) {
+            int idx = (log_head - log_count + i + MAX_LOG_LINES) % MAX_LOG_LINES;
+            offset += snprintf(initial_batch + offset, sizeof(initial_batch) - offset, "data: %s\n\n", log_buffer[idx]);
+        }
+        
+        conn->sent_initial = 1;
+        conn->last_log_version = log_updated;
+        
+        if (offset > 0) {
+            size_t to_copy = (offset < max) ? offset : max;
+            memcpy(buf, initial_batch, to_copy);
+            pthread_mutex_unlock(&log_mutex);
+            return to_copy;
+        }
+    }
+
+    /* Wait for new logs */
+    while (conn->last_log_version == log_updated) {
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_sec += 5; /* Keep-alive ping interval */
+        
+        if (pthread_cond_timedwait(&log_cond, &log_mutex, &ts) == ETIMEDOUT) {
+            /* Send a comment keep-alive */
+            const char *ping = ": ping\n\n";
+            memcpy(buf, ping, strlen(ping));
+            pthread_mutex_unlock(&log_mutex);
+            return strlen(ping);
+        }
+    }
+
+    /* Send new log */
+    int idx = (log_head - 1 + MAX_LOG_LINES) % MAX_LOG_LINES;
+    size_t len = snprintf(buf, max, "data: %s\n\n", log_buffer[idx]);
+    conn->last_log_version = log_updated;
+    
+    pthread_mutex_unlock(&log_mutex);
+    return len;
 }
 
+static void log_stream_cleanup(void *cls) {
+    free(cls);
+}
 #define DEFAULT_PORT MENU_PORT
 
 static volatile int server_active_flag = 0;
@@ -423,6 +493,15 @@ static enum MHD_Result on_request(void *cls, struct MHD_Connection *conn,
                 enabled ? "true" : "false", list_buf);
         resp = MHD_create_response_from_buffer(strlen(response_buffer), (void *)response_buffer, MHD_RESPMEM_MUST_COPY);
         MHD_add_response_header(resp, "Content-Type", "application/json");
+    } else if (strcmp(url, "/events") == 0) {
+        struct LogSSEConnection *sse = malloc(sizeof(struct LogSSEConnection));
+        sse->last_log_version = 0;
+        sse->sent_initial = 0;
+        
+        resp = MHD_create_response_from_callback(MHD_SIZE_UNKNOWN, 1024, &log_stream_callback, sse, &log_stream_cleanup);
+        MHD_add_response_header(resp, "Content-Type", "text/event-stream");
+        MHD_add_response_header(resp, "Cache-Control", "no-cache");
+        MHD_add_response_header(resp, "Connection", "keep-alive");
     } else {
         /* Default: 404 for now */
         const char *not_found = "404 Not Found\n";
@@ -468,7 +547,7 @@ int main(int argc, char *argv[]) {
     signal(SIGCONT, handle_sigcont);
 
     /* Start the MHD daemon */
-    daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY | MHD_USE_DEBUG,
+    daemon = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION | MHD_USE_DEBUG,
                              port, NULL, NULL, &on_request, NULL,
                              MHD_OPTION_END);
 
@@ -519,7 +598,7 @@ int main(int argc, char *argv[]) {
                 /* Give it a moment to release ports and for system to stabilize */
                 usleep(800000); 
                 
-                daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY | MHD_USE_DEBUG,
+                daemon = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION | MHD_USE_DEBUG,
                                          port, NULL, NULL, &on_request, NULL,
                                          MHD_OPTION_END);
                 
