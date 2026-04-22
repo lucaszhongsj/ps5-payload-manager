@@ -89,6 +89,24 @@ const SettingsView = ({ config, onSaveConfig, isPS5, logs, setLogs }) => {
             </button>
           </SettingRow>
 
+          <SettingRow
+            title="Scan USB Payloads"
+            description="Enable scanning for .elf and .bin files in the root directory of USB drives (/mnt/usb0-7)."
+          >
+            <button
+              onClick={() => onSaveConfig({ SCAN_USB_PAYLOADS: !config.SCAN_USB_PAYLOADS })}
+              className={cn(
+                "w-20 h-10 rounded-full transition-all relative p-1.5",
+                config.SCAN_USB_PAYLOADS ? "bg-ps-blue" : "bg-white/10"
+              )}
+            >
+              <div className={cn(
+                "w-7 h-7 bg-white rounded-full transition-all shadow-xl",
+                config.SCAN_USB_PAYLOADS ? "translate-x-10" : "translate-x-0"
+              )} />
+            </button>
+          </SettingRow>
+
           <div className="p-8 bg-white/[0.03] rounded-3xl border border-white/10 space-y-8">
             <div className="flex justify-between items-center">
               <div className="space-y-1">

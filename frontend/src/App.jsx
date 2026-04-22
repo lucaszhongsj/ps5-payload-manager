@@ -70,7 +70,15 @@ function App() {
     setLoadingPayloads(true)
     const data = await api('/list_payloads')
     if (data?.payloads) {
-      setPayloads(data.payloads)
+      // Sort payloads: internal first, USB last
+      const sorted = [...data.payloads].sort((a, b) => {
+        const aIsUsb = a.startsWith('/mnt/usb')
+        const bIsUsb = b.startsWith('/mnt/usb')
+        if (aIsUsb && !bIsUsb) return 1
+        if (!aIsUsb && bIsUsb) return -1
+        return a.localeCompare(b)
+      })
+      setPayloads(sorted)
       setLoadingPayloads(false)
     } else if (retryCount < 5) {
       setTimeout(() => refreshPayloads(retryCount + 1), 1000)

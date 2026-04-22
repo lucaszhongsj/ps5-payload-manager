@@ -1,13 +1,16 @@
 import React from 'react'
-import { Zap } from 'lucide-react'
+import { Zap, Usb } from 'lucide-react'
 import { cn, parsePayloadName } from '../../utils/helpers'
 
 const PayloadName = ({ path, className, versionClassName, stacked = false }) => {
   const { displayName, version, isDelay } = parsePayloadName(path);
+  const isUsb = path?.startsWith('/mnt/usb');
+
   return (
     <div className={cn("flex min-w-0 flex-1", stacked ? "flex-col items-start" : "items-center space-x-3", className)}>
       <div className="flex items-center space-x-2 min-w-0">
         {isDelay && <Zap className="w-4 h-4 text-ps-blue shrink-0" />}
+        {isUsb && <Usb className="w-5 h-5 text-ps-blue shrink-0 mr-1" />}
         <span className="font-extrabold truncate shrink leading-tight">{displayName}</span>
       </div>
       {version && (

@@ -157,7 +157,7 @@ struct UploadStatus {
 
 static void read_next_config_values(int *enabled, long *repo_update,
                                     int *browser_open, int *auto_delay,
-                                    int *kill_disc_player) {
+                                    int *kill_disc_player, int *scan_usb) {
   FILE *f = fopen(NEXT_CONFIG_PATH, "r");
   char line[256];
 
@@ -166,6 +166,7 @@ static void read_next_config_values(int *enabled, long *repo_update,
   *browser_open = 1;     /* Default on */
   *auto_delay = 5;       /* Default 5s */
   *kill_disc_player = 1; /* Default on */
+  *scan_usb = 0;         /* Default off */
 
   if (!f) {
     return;
@@ -182,6 +183,8 @@ static void read_next_config_values(int *enabled, long *repo_update,
       *auto_delay = atoi(line + 15);
     } else if (strncmp(line, "KILL_DISC_PLAYER_ON_STARTUP=", 28) == 0) {
       *kill_disc_player = atoi(line + 28);
+    } else if (strncmp(line, "SCAN_USB_PAYLOADS=", 18) == 0) {
+      *scan_usb = atoi(line + 18);
     }
   }
   fclose(f);
@@ -189,7 +192,7 @@ static void read_next_config_values(int *enabled, long *repo_update,
 
 static int write_next_config_values(int enabled, long repo_update,
                                     int browser_open, int auto_delay,
-                                    int kill_disc_player) {
+                                    int kill_disc_player, int scan_usb) {
   FILE *f;
 
   mkdir(BASE_DATA_DIR, 0777);
@@ -203,6 +206,7 @@ static int write_next_config_values(int enabled, long repo_update,
   fprintf(f, "AUTO_BROWSER_OPEN=%d\n", browser_open ? 1 : 0);
   fprintf(f, "AUTOLOAD_DELAY=%d\n", auto_delay);
   fprintf(f, "KILL_DISC_PLAYER_ON_STARTUP=%d\n", kill_disc_player ? 1 : 0);
+  fprintf(f, "SCAN_USB_PAYLOADS=%d\n", scan_usb ? 1 : 0);
   fclose(f);
   return 0;
 }
@@ -358,9 +362,9 @@ static enum MHD_Result on_request(void *cls, struct MHD_Connection *conn,
         }
 
         if (enabled != -1) {
-          int ex_en, ex_br, ex_del, ex_kill;
+          int ex_en, ex_br, ex_del, ex_kill, ex_usb;
           long ex_repo;
-          read_next_config_values(&ex_en, &ex_repo, &ex_br, &ex_del, &ex_kill);
+          read_next_config_values(&ex_en, &ex_repo, &ex_br, &ex_del, &ex_kill, &ex_usb);
 
           /* Update individual fields from JSON if present */
           int browser_open = ex_br;
@@ -406,8 +410,23 @@ static enum MHD_Result on_request(void *cls, struct MHD_Connection *conn,
             }
           }
 
+          int scan_usb = ex_usb;
+          char *usb_pos = strstr(status->data, "\"SCAN_USB_PAYLOADS\"");
+          if (usb_pos) {
+            char *val = strchr(usb_pos, ':');
+            if (val) {
+              val++;
+              while (*val == ' ')
+                val++;
+              if (strncmp(val, "true", 4) == 0)
+                scan_usb = 1;
+              else if (strncmp(val, "false", 5) == 0)
+                scan_usb = 0;
+            }
+          }
+
           if (write_next_config_values(enabled, ex_repo, browser_open,
-                                       auto_delay, kill_disc) == 0) {
+                                       auto_delay, kill_disc, scan_usb) == 0) {
             nm_log("[NextMenu] Saved config to %s\n", NEXT_CONFIG_PATH);
           }
           if (enabled == 0)
@@ -718,16 +737,16 @@ static enum MHD_Result on_request(void *cls, struct MHD_Connection *conn,
       fclose(f);
     }
 
-    int config_enabled, config_browser, config_delay, config_kill;
+    int config_enabled, config_browser, config_delay, config_kill, config_usb;
     long config_repo;
     read_next_config_values(&config_enabled, &config_repo, &config_browser,
-                            &config_delay, &config_kill);
+                            &config_delay, &config_kill, &config_usb);
 
     snprintf(response_buffer, sizeof(response_buffer),
              "{\"remaining\":%d,\"total\":%d,\"done\":%d,\"current\":\"%s\","
-             "\"list\":\"%s\",\"delay\":%d,\"KILL_DISC_PLAYER_ON_STARTUP\":%s}",
+             "\"list\":\"%s\",\"delay\":%d,\"KILL_DISC_PLAYER_ON_STARTUP\":%s,\"SCAN_USB_PAYLOADS\":%s}",
              remaining, total, done, current, list_buf, config_delay,
-             config_kill ? "true" : "false");
+             config_kill ? "true" : "false", config_usb ? "true" : "false");
     resp = MHD_create_response_from_buffer(strlen(response_buffer),
                                            (void *)response_buffer,
                                            MHD_RESPMEM_MUST_COPY);
@@ -752,10 +771,10 @@ static enum MHD_Result on_request(void *cls, struct MHD_Connection *conn,
                                            MHD_RESPMEM_MUST_COPY);
     MHD_add_response_header(resp, "Content-Type", "application/json");
   } else if (strcmp(url, ROUTE_GET_CONFIG) == 0) {
-    int enabled = 0, browser_open = 1, auto_delay = 5, kill_disc = 1;
+    int enabled = 0, browser_open = 1, auto_delay = 5, kill_disc = 1, scan_usb = 0;
     long last_repo_update = 0;
     read_next_config_values(&enabled, &last_repo_update, &browser_open,
-                            &auto_delay, &kill_disc);
+                            &auto_delay, &kill_disc, &scan_usb);
 
     /* Get list */
     char list_buf[4096] = {0};
@@ -779,10 +798,10 @@ static enum MHD_Result on_request(void *cls, struct MHD_Connection *conn,
              "{\"AUTOLOAD_ENABLED\":%s,\"AUTOLOAD_LIST\":\"%s\",\"LAST_"
              "REPOSITORY_UPDATE\":%ld,"
              "\"AUTO_BROWSER_OPEN\":%s,\"AUTOLOAD_DELAY\":%d,\"KILL_DISC_"
-             "PLAYER_ON_STARTUP\":%s}",
+             "PLAYER_ON_STARTUP\":%s,\"SCAN_USB_PAYLOADS\":%s}",
              enabled ? "true" : "false", list_buf, last_repo_update,
              browser_open ? "true" : "false", auto_delay,
-             kill_disc ? "true" : "false");
+             kill_disc ? "true" : "false", scan_usb ? "true" : "false");
     resp = MHD_create_response_from_buffer(strlen(response_buffer),
                                            (void *)response_buffer,
                                            MHD_RESPMEM_MUST_COPY);
@@ -839,9 +858,9 @@ int main(int argc, char *argv[]) {
   }
 
   /* Start Autoload Sequence (if config exists) */
-  int ex_en, ex_br = 1, ex_del = 5, ex_kill = 1;
+  int ex_en, ex_br = 1, ex_del = 5, ex_kill = 1, ex_usb = 0;
   long ex_repo = 0;
-  read_next_config_values(&ex_en, &ex_repo, &ex_br, &ex_del, &ex_kill);
+  read_next_config_values(&ex_en, &ex_repo, &ex_br, &ex_del, &ex_kill, &ex_usb);
 
   /* Kill Disc Player if running (BD-JB host) and enabled in config */
   if (ex_kill) {

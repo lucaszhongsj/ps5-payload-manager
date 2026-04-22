@@ -524,7 +524,7 @@ static int is_supported_extension(const char *filename) {
             char full_path[512];
             struct stat st;
 
-            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            if (entry->d_name[0] == '.') {
                 continue;
             }
 
@@ -612,11 +612,11 @@ static int is_supported_extension(const char *filename) {
         return write_file_text(details_path, json_buf, strlen(json_buf));
     }
 
-    static void scan_payloads_recursive(const char *dir_path, int depth, JsonListBuilder *jb) {
+    static void scan_payloads_recursive(const char *dir_path, int depth, int max_depth, JsonListBuilder *jb) {
         DIR *dir;
         struct dirent *entry;
 
-        if (depth > 5) {
+        if (depth > max_depth) {
             return;
         }
 
@@ -631,7 +631,7 @@ static int is_supported_extension(const char *filename) {
             char full_path[512];
             struct stat st;
 
-            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            if (entry->d_name[0] == '.') {
                 continue;
             }
 
@@ -641,7 +641,7 @@ static int is_supported_extension(const char *filename) {
             }
 
             if (S_ISDIR(st.st_mode)) {
-                scan_payloads_recursive(full_path, depth + 1, jb);
+                scan_payloads_recursive(full_path, depth + 1, max_depth, jb);
                 continue;
             }
 
@@ -662,6 +662,7 @@ static int is_supported_extension(const char *filename) {
         closedir(dir);
     }
 
+
     static int resolve_recursive(const char *dir_path, const char *filename, char *out_path, size_t out_size, int depth) {
         DIR *dir;
         struct dirent *entry;
@@ -679,7 +680,7 @@ static int is_supported_extension(const char *filename) {
             char full_path[512];
             struct stat st;
 
-            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            if (entry->d_name[0] == '.') {
                 continue;
             }
 
@@ -707,6 +708,22 @@ static int is_supported_extension(const char *filename) {
         return -1;
     }
 
+    static int read_config_bool(const char *key, int default_val) {
+        FILE *f = fopen(NEXT_CONFIG_PATH, "r");
+        if (!f) return default_val;
+        char line[256];
+        int res = default_val;
+        size_t key_len = strlen(key);
+        while (fgets(line, sizeof(line), f)) {
+            if (strncmp(line, key, key_len) == 0 && line[key_len] == '=') {
+                res = atoi(line + key_len + 1);
+                break;
+            }
+        }
+        fclose(f);
+        return res;
+    }
+
     size_t payload_mgr_list_json(char *json_buf, size_t buf_size) {
         JsonListBuilder jb;
 
@@ -723,7 +740,15 @@ static int is_supported_extension(const char *filename) {
         }
 
         for (int i = 0; i < scan_dirs_count; i++) {
-            scan_payloads_recursive(scan_dirs[i], 0, &jb);
+            scan_payloads_recursive(scan_dirs[i], 0, 5, &jb);
+        }
+
+        if (read_config_bool("SCAN_USB_PAYLOADS", 0)) {
+            for (int i = 0; i < 8; i++) {
+                char usb_root[32];
+                snprintf(usb_root, sizeof(usb_root), "/mnt/usb%d", i);
+                scan_payloads_recursive(usb_root, 0, 1, &jb);
+            }
         }
 
         json_append(&jb, "]}");
