@@ -36,7 +36,14 @@ import LogViewer from './components/views/LogViewer'
 
 function App() {
   const [view, setView] = useState('dashboard')
-  const [sidebarExpanded, setSidebarExpanded] = useState(true)
+  const [sidebarExpanded, setSidebarExpanded] = useState(() => {
+    const saved = localStorage.getItem('sidebarExpanded')
+    return saved !== null ? JSON.parse(saved) : true
+  })
+
+  useEffect(() => {
+    localStorage.setItem('sidebarExpanded', JSON.stringify(sidebarExpanded))
+  }, [sidebarExpanded])
   const [autoloadStatus, setAutoloadStatus] = useState(null)
   const [logs, setLogs] = useState([])
   const [payloads, setPayloads] = useState([])
