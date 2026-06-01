@@ -1018,6 +1018,8 @@ static int is_allowed_usb_path(const char *path) {
     int payload_mgr_delete_payload_file(const char *filename) {
         char path[512];
         char details_path[640];
+        char dir_path[512];
+        char *last_slash;
 
         if (!filename || strstr(filename, "/") || strstr(filename, "..")) {
             return -1;
@@ -1036,6 +1038,15 @@ static int is_allowed_usb_path(const char *path) {
         
         /* Remove from autoload.txt if present */
         pldmgr_autoload_update_config_entry(filename, NULL);
+        
+        /* Try to remove the containing directory (will fail if not empty) */
+        strncpy(dir_path, path, sizeof(dir_path));
+        dir_path[sizeof(dir_path) - 1] = '\0';
+        last_slash = strrchr(dir_path, '/');
+        if (last_slash) {
+            *last_slash = '\0';
+            rmdir(dir_path);
+        }
         
         return 0;
     }
