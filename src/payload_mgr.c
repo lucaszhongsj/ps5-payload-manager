@@ -197,10 +197,7 @@ size_t payload_mgr_list_json(char *json_buf, size_t buf_size) {
     int max = 256;
     int scan_usb = config_read_bool("SCAN_USB_PAYLOADS", 0);
 
-    /* Scan internal storage */
-    scan_payloads_recursive(PAYLOADS_STORAGE_DIR, 1, &payloads, &count, max);
-
-    /* Scan pldmgr subdirs */
+    /* Scan pldmgr subdirs (this includes PAYLOADS_STORAGE_DIR under /data/pldmgr) */
     for (int i = 0; i < SCAN_DIRS_COUNT; i++) {
         scan_payloads_recursive(SCAN_DIRS[i], 0, &payloads, &count, max);
     }
@@ -221,18 +218,21 @@ size_t payload_mgr_list_json(char *json_buf, size_t buf_size) {
     json_append(&jb, "{\"payloads\":[");
 
     for (int i = 0; i < count; i++) {
-        char path_escaped[1024], filename_escaped[512];
-        char details_buf[4096] = "";
-        int has_details = 0;
-
-        pldmgr_json_escape(payloads[i].filename, filename_escaped, sizeof(filename_escaped));
+        char path_escaped[1024];
         pldmgr_json_escape(payloads[i].path, path_escaped, sizeof(path_escaped));
+        json_append(&jb, "%s\"%s\"", (i > 0) ? "," : "", path_escaped);
+    }
 
+    json_append(&jb, "],\"meta\":{");
+
+    int meta_first = 1;
+    for (int i = 0; i < count; i++) {
         /* Try to load sidecar .json metadata */
         char details_path[640];
         snprintf(details_path, sizeof(details_path), "%s.json", payloads[i].path);
         char *details_json = NULL;
         size_t details_size = 0;
+
         if (read_file_text(details_path, &details_json, &details_size) == 0 && details_json) {
             /* Extract fields from sidecar */
             char d_name[256] = "", d_desc[1024] = "", d_ver[64] = "", d_url[1024] = "";
@@ -255,8 +255,9 @@ size_t payload_mgr_list_json(char *json_buf, size_t buf_size) {
             json_extract_string(details_json, end, "install_source_detail", d_install_detail, sizeof(d_install_detail));
             json_extract_string(details_json, end, "source_name", d_source_name, sizeof(d_source_name));
 
-            char ne[512], de[2048], ve[128], ue[2048], se[2048], sde[2048];
+            char filename_escaped[512], ne[512], de[2048], ve[128], ue[2048], se[2048], sde[2048];
             char lue[128], ce[128], dae[128], ise[256], ide[2048], sne[512];
+            pldmgr_json_escape(payloads[i].filename, filename_escaped, sizeof(filename_escaped));
             pldmgr_json_escape(d_name, ne, sizeof(ne));
             pldmgr_json_escape(d_desc, de, sizeof(de));
             pldmgr_json_escape(d_ver, ve, sizeof(ve));
@@ -270,27 +271,22 @@ size_t payload_mgr_list_json(char *json_buf, size_t buf_size) {
             pldmgr_json_escape(d_install_detail, ide, sizeof(ide));
             pldmgr_json_escape(d_source_name, sne, sizeof(sne));
 
-            snprintf(details_buf, sizeof(details_buf),
-                     ",\"display_name\":\"%s\",\"description\":\"%s\",\"version\":\"%s\","
-                     "\"url\":\"%s\",\"source\":\"%s\",\"source_direct\":\"%s\","
-                     "\"last_update\":\"%s\",\"checksum\":\"%s\",\"downloaded_at\":\"%s\","
-                     "\"install_source\":\"%s\",\"install_source_detail\":\"%s\","
-                     "\"source_name\":\"%s\"",
-                     ne, de, ve, ue, se, sde, lue, ce, dae, ise, ide, sne);
-            has_details = 1;
+            json_append(&jb, "%s\"%s\":{"
+                        "\"display_name\":\"%s\",\"description\":\"%s\",\"version\":\"%s\","
+                        "\"url\":\"%s\",\"source\":\"%s\",\"source_direct\":\"%s\","
+                        "\"last_update\":\"%s\",\"checksum\":\"%s\",\"downloaded_at\":\"%s\","
+                        "\"install_source\":\"%s\",\"install_source_detail\":\"%s\","
+                        "\"source_name\":\"%s\"}",
+                        meta_first ? "" : ",",
+                        filename_escaped,
+                        ne, de, ve, ue, se, sde, lue, ce, dae, ise, ide, sne);
+            
+            meta_first = 0;
             free(details_json);
         }
-
-        json_append(&jb, "%s{\"name\":\"%s\",\"filename\":\"%s\",\"path\":\"%s\","
-                    "\"is_storage\":%s,\"mtime\":%ld%s}",
-                    (i > 0) ? "," : "",
-                    filename_escaped, filename_escaped, path_escaped,
-                    payloads[i].is_storage ? "true" : "false",
-                    payloads[i].mtime,
-                    has_details ? details_buf : "");
     }
 
-    json_append(&jb, "]}");
+    json_append(&jb, "}}");
 
     if (payloads)
         free(payloads);
