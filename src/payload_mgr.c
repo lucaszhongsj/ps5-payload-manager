@@ -361,12 +361,20 @@ int payload_mgr_import_to_storage(const char *filename, const char *temp_path,
 }
 
 int payload_mgr_check_existing(const char *filename, char *out_json, size_t out_size) {
-    char resolved[512];
-    if (payload_mgr_resolve_path(filename, resolved, sizeof(resolved)) == 0) {
-        snprintf(out_json, out_size, "{\"exists\":true,\"path\":\"%s\"}", resolved);
-    } else {
-        snprintf(out_json, out_size, "{\"exists\":false}");
-    }
+    char folder_name[128];
+    char folder_path[512];
+    char file_path[640];
+    struct stat st;
+
+    pldmgr_utils_get_payload_folder_name(filename, folder_name, sizeof(folder_name));
+    snprintf(folder_path, sizeof(folder_path), "%s/%s", PAYLOADS_STORAGE_DIR, folder_name);
+    snprintf(file_path, sizeof(file_path), "%s/%s", folder_path, filename);
+
+    int folder_exists = (stat(folder_path, &st) == 0 && S_ISDIR(st.st_mode));
+    int file_exists = (stat(file_path, &st) == 0 && S_ISREG(st.st_mode));
+
+    snprintf(out_json, out_size, "{\"status\":\"ok\",\"folder_exists\":%s,\"file_exists\":%s,\"folder_name\":\"%s\"}",
+             folder_exists ? "true" : "false", file_exists ? "true" : "false", folder_name);
     return 0;
 }
 
