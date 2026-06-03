@@ -157,12 +157,9 @@ int ps5_kill_disc_player() {
     pldmgr_notify("Failed to suspend Disc Player");
     return -1;
   }
-  pldmgr_notify("Disc Player Suspended\nWaiting for Home Screen...");
 
   /* Wait for home screen transition stability */
-  sleep(5);
-  pldmgr_notify("Killing Disc Player in 3 seconds...");
-  sleep(3);
+  sleep(2);
 
   /* 2. SIGKILL */
   pid_t pid = get_pid_by_name(target_process);
