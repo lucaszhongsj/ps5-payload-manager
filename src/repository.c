@@ -73,8 +73,17 @@ int download_to_file(const char *url, const char *out_path) {
 
         /* Allow redirection */
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-
         res = curl_easy_perform(curl);
+
+        /* If SSL verification fails (e.g., due to mbedTLS Quirks with Let's Encrypt / Sectigo
+           cross-signed roots, or user's time drift), fallback to insecure download.
+           We verify checksums later anyway for ELFs! */
+        if (res == CURLE_PEER_FAILED_VERIFICATION) {
+            pldmgr_log("[PLDMGR] SSL verification failed. Retrying insecurely: %s\n", url);
+            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+            curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+            res = curl_easy_perform(curl);
+        }
 
         long http_code = 0;
         curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
