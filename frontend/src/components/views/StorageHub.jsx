@@ -77,6 +77,14 @@ const StorageHub = ({ payloads, payloadMeta, onInstall, onDelete, onUpload, onIm
   const [error, setError] = useState(false)
   const [expandedSource, setExpandedSource] = useState(null) // id of expanded catalog
   const [search, setSearch] = useState('')
+  const [sortMode, setSortMode] = useState(() => {
+    return localStorage.getItem('repoSortMode') || 'category'
+  })
+
+  const handleSortChange = (mode) => {
+    setSortMode(mode)
+    localStorage.setItem('repoSortMode', mode)
+  }
 
   const fetchRemote = async (force = false) => {
     setLoading(true)
@@ -277,15 +285,31 @@ const StorageHub = ({ payloads, payloadMeta, onInstall, onDelete, onUpload, onIm
           </button>
         </div>
 
-        <div className="flex items-center bg-black/40 border border-white/10 rounded-2xl px-4 py-3 focus-within:border-ps-blue/50 transition-colors">
-          <Search className="w-5 h-5 text-zinc-500 mr-3" />
-          <input
-            type="text"
-            placeholder="Search payloads by name or description..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="bg-transparent border-none outline-none text-white w-full font-medium placeholder:text-zinc-600"
-          />
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 flex items-center bg-black/40 border border-white/10 rounded-2xl px-4 py-3 focus-within:border-ps-blue/50 transition-colors">
+            <Search className="w-5 h-5 text-zinc-500 mr-3" />
+            <input
+              type="text"
+              placeholder="Search payloads by name or description..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="bg-transparent border-none outline-none text-white w-full font-medium placeholder:text-zinc-600"
+            />
+          </div>
+          <div className="relative flex-shrink-0">
+            <select 
+               value={sortMode}
+               onChange={e => handleSortChange(e.target.value)}
+               className="w-full bg-black/40 border border-white/10 rounded-2xl pl-4 pr-10 py-3 text-white outline-none focus:border-ps-blue/50 cursor-pointer appearance-none"
+             >
+               <option value="category">Sort by Category</option>
+               <option value="update_time">Sort by Update Time</option>
+               <option value="name">Sort by Name</option>
+            </select>
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-zinc-500">
+              <ChevronDown className="w-5 h-5" />
+            </div>
+          </div>
         </div>
 
         {loading && !repoData ? (
@@ -320,15 +344,35 @@ const StorageHub = ({ payloads, payloadMeta, onInstall, onDelete, onUpload, onIm
               // Auto-expand if there's only 1 source, otherwise respect state or active search
               const isExpanded = (enrichedSources.length === 1) || expandedSource === src.id || search.trim() !== ''
 
-              const groupedPayloads = availablePayloads.reduce((acc, p) => {
-                const cat = p.category || 'Uncategorized'
-                if (!acc[cat]) acc[cat] = []
-                acc[cat].push(p)
-                return acc
-              }, {})
-              
-              const categories = Object.keys(groupedPayloads).sort()
-              const hasMultipleCategories = categories.length > 1 && search.trim() === ''
+              let hasMultipleCategories = false
+              let groupedPayloads = {}
+              let categories = []
+
+              if (sortMode === 'category' && search.trim() === '') {
+                groupedPayloads = availablePayloads.reduce((acc, p) => {
+                  const cat = p.category || 'Uncategorized'
+                  if (!acc[cat]) acc[cat] = []
+                  acc[cat].push(p)
+                  return acc
+                }, {})
+                categories = Object.keys(groupedPayloads).sort()
+                hasMultipleCategories = categories.length > 1
+              } else {
+                // sort flat list
+                availablePayloads.sort((a, b) => {
+                  if (sortMode === 'update_time') {
+                    // Descending by last_update
+                    const dateA = a.last_update || ''
+                    const dateB = b.last_update || ''
+                    return dateB.localeCompare(dateA)
+                  } else if (sortMode === 'name') {
+                    const nameA = a.name || a.filename || ''
+                    const nameB = b.name || b.filename || ''
+                    return nameA.localeCompare(nameB)
+                  }
+                  return 0
+                })
+              }
 
               return (
                 <div key={src.id} className={cn(
