@@ -15,7 +15,7 @@ const PayloadItem = ({ p, multiSources, isPS5, onInstall, srcId, srcUrl }) => (
     )}
   >
     <div className="space-y-2 min-w-0">
-      <PayloadName path={p.filename} className="text-xl md:text-2xl text-white" stacked lastUpdate={p.last_update} />
+      <PayloadName path={p.filename} version={p.version} className="text-xl md:text-2xl text-white" stacked lastUpdate={p.last_update} />
       {p.description && (
         <p className="text-sm md:text-base text-zinc-400 font-medium leading-relaxed">{p.description}</p>
       )}
@@ -229,7 +229,7 @@ const StorageHub = ({ payloads, payloadMeta, onInstall, onDelete, onUpload, onIm
               // Find update in all sources (multi or legacy)
               const allRemote = enrichedSources.flatMap(s => s.payloads)
               const remoteMatch = allRemote.find(rp => rp.filename === fileName || rp.installedFilename === fileName)
-              const remoteVersion = remoteMatch?.filename ? parsePayloadName(remoteMatch.filename).version : null
+              const remoteVersion = remoteMatch?.version || (remoteMatch?.filename ? parsePayloadName(remoteMatch.filename).version : null)
               return (
                 <div key={path} className="group flex flex-col justify-center p-4 md:p-6 glass-card rounded-ps-2xl border-white/10 hover:border-ps-blue/30 gap-3 md:gap-4 relative overflow-hidden">
                   <div className="flex flex-row items-center justify-between w-full gap-4">

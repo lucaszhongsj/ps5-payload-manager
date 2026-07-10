@@ -529,6 +529,7 @@ function App() {
                       onClick={() => loadPayload(p)}
                       isLoading={loading && activeLoadingName === p.split('/').pop().replace(/\.(elf|bin)$/i, '').replace(/_/g, ' ')}
                       sourceName={config.MULTI_SOURCES_ENABLED ? (payloadMeta[p.split('/').pop()]?.source_name || null) : null}
+                      version={payloadMeta[p.split('/').pop()]?.version || null}
                     />
                   ))
                 )}

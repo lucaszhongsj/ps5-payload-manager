@@ -2,9 +2,11 @@ import React from 'react'
 import { Zap, Usb } from 'lucide-react'
 import { cn, parsePayloadName } from '../../utils/helpers'
 
-const PayloadName = ({ path, className, versionClassName, stacked = false, hideIcon = false, lastUpdate = null }) => {
-  const { displayName, version, isDelay } = parsePayloadName(path);
+const PayloadName = ({ path, version: repoVersion, className, versionClassName, stacked = false, hideIcon = false, lastUpdate = null }) => {
+  let { displayName, version, isDelay } = parsePayloadName(path);
   const isUsb = path?.startsWith('/mnt/usb');
+
+  if (repoVersion) version = repoVersion;
 
   return (
     <div className={cn("flex min-w-0 flex-1 w-full", stacked ? "flex-col items-stretch" : "items-center space-x-3", className)}>
