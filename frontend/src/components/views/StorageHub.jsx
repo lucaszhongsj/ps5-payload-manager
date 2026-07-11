@@ -179,6 +179,30 @@ const StorageHub = ({ payloads, payloadMeta, onInstall, onDelete, onUpload, onIm
     return []
   }, [repoData, multiSources, localFilenames])
 
+  /* ---- Cross-source dedup (display only) ----
+   * When the same payload (by filename) appears in multiple sources, render it
+   * only under the highest-priority source (default/official first, then by
+   * source order) and record which other sources also carry it. Install logic
+   * is untouched — only the catalog view is deduplicated so users don't see
+   * duplicate "Update" cards for the same payload across sources. */
+  const dedupedSources = useMemo(() => {
+    const seen = new Map() // filename -> source name that owns it
+    return enrichedSources.map(src => {
+      const kept = []
+      const duplicates = []
+      for (const p of src.payloads) {
+        const owner = seen.get(p.filename)
+        if (owner) {
+          duplicates.push({ filename: p.filename, owner })
+        } else {
+          seen.set(p.filename, src.name)
+          kept.push(p)
+        }
+      }
+      return { ...src, payloads: kept, duplicates }
+    })
+  }, [enrichedSources])
+
   const legacyRepoUrl = repoData?.repo_url || ''
 
   /* ---- Source badge helper: look up source name from metadata ---- */
@@ -326,10 +350,10 @@ const StorageHub = ({ payloads, payloadMeta, onInstall, onDelete, onUpload, onIm
             </div>
             <button onClick={() => fetchRemote(true)} className="px-8 py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-white rounded-xl font-bold uppercase text-xs transition-all">Retry Connection</button>
           </div>
-        ) : enrichedSources.length > 0 ? (
+        ) : dedupedSources.length > 0 ? (
           /* ===== REPOSITORY CATALOGS ===== */
           <div className="space-y-4">
-            {enrichedSources.map(src => {
+            {dedupedSources.map(src => {
               let availablePayloads = src.payloads.filter(p => !p.isInstalled || p.isUpdate)
               
               if (search.trim() !== '') {
@@ -342,7 +366,7 @@ const StorageHub = ({ payloads, payloadMeta, onInstall, onDelete, onUpload, onIm
               }
               
               // Auto-expand if there's only 1 source, otherwise respect state or active search
-              const isExpanded = (enrichedSources.length === 1) || expandedSource === src.id || search.trim() !== ''
+              const isExpanded = (dedupedSources.length === 1) || expandedSource === src.id || search.trim() !== ''
 
               let hasMultipleCategories = false
               let groupedPayloads = {}
@@ -411,10 +435,18 @@ const StorageHub = ({ payloads, payloadMeta, onInstall, onDelete, onUpload, onIm
                       </div>
                     </div>
                     <div className="flex items-center space-x-3">
+                      {src.duplicates?.length > 0 && (
+                        <span
+                          className="px-3 py-1 rounded-full bg-white/5 text-zinc-500 text-xs font-bold"
+                          title={src.duplicates.map(d => `${d.filename} (in ${d.owner})`).join('\n')}
+                        >
+                          {src.duplicates.length} hidden (in other sources)
+                        </span>
+                      )}
                       <span className="px-3 py-1 rounded-full bg-white/5 text-zinc-500 text-xs font-bold">
                         {availablePayloads.length} available
                       </span>
-                      {enrichedSources.length > 1 && (
+                      {dedupedSources.length > 1 && (
                         <ChevronDown className={cn("w-5 h-5 text-zinc-500 transition-transform", isExpanded && "rotate-180")} />
                       )}
                     </div>
