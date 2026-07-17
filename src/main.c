@@ -181,12 +181,34 @@ int main(int argc, char *argv[]) {
         /* Immediate Wake-up Recovery */
         if (resume_flag) {
             resume_flag = 0;
-            pldmgr_log("[PLDMGR] Console resumed from standby. Refreshing network "
-                       "stack...\n");
+            pldmgr_log("[PLDMGR] Console resumed from standby. Restarting "
+                       "server...\n");
             pldmgr_autoload_reset();
 
-            /* Force a check right now */
-            network_check_timer = 50;
+            /* Force full server restart — the old socket is likely dead */
+            if (daemon)
+                MHD_stop_daemon(daemon);
+
+            usleep(1000000); /* 1s for network stack to stabilize */
+
+            daemon = MHD_start_daemon(MHD_USE_THREAD_PER_CONNECTION | MHD_USE_DEBUG,
+                                      port, NULL, NULL, &http_on_request, NULL,
+                                      MHD_OPTION_END);
+
+            if (daemon) {
+                /* Re-read current IP */
+                if (pldmgr_get_local_ip(current_ip, sizeof(current_ip)) != 0)
+                    strcpy(current_ip, "unknown");
+                pldmgr_log("[PLDMGR] Server restarted after standby. IP: %s\n",
+                           current_ip);
+            } else {
+                pldmgr_log("[PLDMGR] !!! Failed to restart server after standby!\n");
+                pldmgr_notify("Payload Manager: Server restart failed after standby");
+                strcpy(current_ip, "unknown");
+            }
+
+            /* Reset timer so we don't immediately re-check */
+            network_check_timer = 0;
         }
 
         /* Network Watchdog (every 5 seconds) */
@@ -217,8 +239,28 @@ int main(int argc, char *argv[]) {
                     pldmgr_log("[PLDMGR] !!! Failed to restore server!\n");
                 }
             } else if (!has_ip && strcmp(current_ip, "unknown") != 0) {
-                pldmgr_log("[PLDMGR] Network lost (was %s)\n", current_ip);
+                pldmgr_log("[PLDMGR] Network lost (was %s). Restarting server "
+                           "for loopback...\n", current_ip);
                 strcpy(current_ip, "unknown");
+
+                /* Restart daemon to ensure clean socket for loopback */
+                if (daemon)
+                    MHD_stop_daemon(daemon);
+
+                usleep(300000);
+
+                daemon = MHD_start_daemon(
+                    MHD_USE_THREAD_PER_CONNECTION | MHD_USE_DEBUG, port, NULL,
+                    NULL, &http_on_request, NULL, MHD_OPTION_END);
+
+                if (daemon) {
+                    pldmgr_log("[PLDMGR] Server restarted after network loss "
+                               "(loopback only)\n");
+                } else {
+                    pldmgr_log("[PLDMGR] !!! Failed to restart server after "
+                               "network loss!\n");
+                    pldmgr_notify("Payload Manager: Server restart failed");
+                }
             }
         }
     }
