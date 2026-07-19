@@ -51,8 +51,10 @@ All translations are managed exclusively through Crowdin.
 - *Pro Tip:* The best way to translate is to have the Payload Manager running on your PS5 or browser so you can navigate the UI and see the exact context of the buttons and descriptions you are translating!
 
 ### Translators
-- **Chinese Simplified (zh-CN)** [![zh-CN proofreading](https://img.shields.io/badge/dynamic/json?color=green&label=zh-CN&style=flat&logo=crowdin&query=%24.progress.12.data.approvalProgress&url=https%3A%2F%2Fbadges.awesome-crowdin.com%2Fstats-12556057-913733.json)](https://crowdin.com/project/ps5-payload-manager) — [owendswang](https://crowdin.com/profile/owendswang)
-- **Polish (pl)** [![pl proofreading](https://img.shields.io/badge/dynamic/json?color=green&label=pl&style=flat&logo=crowdin&query=%24.progress.8.data.approvalProgress&url=https%3A%2F%2Fbadges.awesome-crowdin.com%2Fstats-12556057-913733.json)](https://crowdin.com/project/ps5-payload-manager) — [najdek](https://crowdin.com/profile/najdek)
+| Language | Progress | Translator(s) |
+| :--- | ---: | :--- |
+| **Chinese Simplified** | [![zh-CN proofreading](https://img.shields.io/badge/dynamic/json?color=green&label=zh-CN&style=flat&logo=crowdin&query=%24.progress.13.data.approvalProgress&url=https%3A%2F%2Fbadges.awesome-crowdin.com%2Fstats-12556057-913733.json)](https://crowdin.com/project/ps5-payload-manager) | [owendswang](https://crowdin.com/profile/owendswang) |
+| **Polish** | [![pl proofreading](https://img.shields.io/badge/dynamic/json?color=green&label=pl&style=flat&logo=crowdin&query=%24.progress.8.data.approvalProgress&url=https%3A%2F%2Fbadges.awesome-crowdin.com%2Fstats-12556057-913733.json)](https://crowdin.com/project/ps5-payload-manager) | [najdek](https://crowdin.com/profile/najdek) |
 
 ## Credits
 - [John Törnblom](https://github.com/john-tornblom) - for the [shell UI installer](https://github.com/ps5-payload-dev/ftpsrv/blob/master/install-ps5.c) and various payloads used as reference.
