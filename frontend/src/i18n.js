@@ -51,9 +51,9 @@ i18n
     resources,
     fallbackLng: 'en-US',
     
-    // Default to en-US on first load, but load from localStorage if previously selected
+    // Default to detected browser language on first load, and load from localStorage if previously selected
     detection: {
-      order: ['localStorage'],
+      order: ['localStorage', 'navigator'],
       caches: ['localStorage']
     },
     
