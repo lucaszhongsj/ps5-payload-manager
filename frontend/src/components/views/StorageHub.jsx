@@ -74,7 +74,7 @@ const CategoryGroup = ({ category, payloads, multiSources, isPS5, onInstall, src
 }
 
 const StorageHub = ({ payloads, payloadMeta, onInstall, onDelete, onUpload, onImportFromUsb, config, ip, scrollTarget, onClearScrollTarget }) => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const multiSources = config?.MULTI_SOURCES_ENABLED === true
 
   const [repoData, setRepoData] = useState(null)   // null = not loaded yet
@@ -175,14 +175,14 @@ const StorageHub = ({ payloads, payloadMeta, onInstall, onDelete, onUpload, onIm
     } else if (!multiSources && repoData?.payloads) {
       return [{
         id: 'legacy-repo',
-        name: 'Default Repository',
+        name: t("storage_hub.default_repository", "Default Repository"),
         url: repoData.repo_url || '',
         last_update: repoData.last_update || 0,
         payloads: enrichPayloads(repoData.payloads)
       }]
     }
     return []
-  }, [repoData, multiSources, localFilenames])
+  }, [repoData, multiSources, localFilenames, t])
 
   const legacyRepoUrl = repoData?.repo_url || ''
 
@@ -256,7 +256,7 @@ const StorageHub = ({ payloads, payloadMeta, onInstall, onDelete, onUpload, onIm
                       <button
                         onClick={() => onDelete(fileName)}
                         className="p-3 md:p-4 rounded-xl bg-red-950/20 text-red-500 border border-red-500/10 hover:bg-red-500 hover:text-white transition-all"
-                        title="Remove Payload"
+                        title={t("storage_hub.remove_payload", "Remove Payload")}
                       >
                         <Trash2 className="w-5 h-5 md:w-6 md:h-6" />
                       </button>
@@ -367,7 +367,7 @@ const StorageHub = ({ payloads, payloadMeta, onInstall, onDelete, onUpload, onIm
 
               if (sortMode === 'category' && search.trim() === '') {
                 groupedPayloads = availablePayloads.reduce((acc, p) => {
-                  const cat = p.category || 'Uncategorized'
+                  const cat = p.category || t("storage_hub.uncategorized", "Uncategorized")
                   if (!acc[cat]) acc[cat] = []
                   acc[cat].push(p)
                   return acc
@@ -398,7 +398,7 @@ const StorageHub = ({ payloads, payloadMeta, onInstall, onDelete, onUpload, onIm
                   {/* Last Sync for single-source mode */}
                   {!multiSources && src.last_update > 0 && (
                     <p className="px-2 text-xs uppercase tracking-widest text-zinc-500">
-                      {t("storage_hub.last_sync", "Last Sync: {{date}}", { date: new Date(src.last_update * 1000).toLocaleString() })}
+                      {t("storage_hub.last_sync", "Last Sync: {{date}}", { date: new Date(src.last_update * 1000).toLocaleString(i18n.resolvedLanguage) })}
                     </p>
                   )}
 
@@ -422,7 +422,7 @@ const StorageHub = ({ payloads, payloadMeta, onInstall, onDelete, onUpload, onIm
                         )}
                         {src.last_update > 0 && (
                           <p className="text-xs text-zinc-500 uppercase tracking-widest mt-1">
-                            {t("storage_hub.updated_at", "Updated {{date}}", { date: new Date(src.last_update * 1000).toLocaleString() })}
+                            {t("storage_hub.updated_at", "Updated {{date}}", { date: new Date(src.last_update * 1000).toLocaleString(i18n.resolvedLanguage) })}
                           </p>
                         )}
                       </div>
