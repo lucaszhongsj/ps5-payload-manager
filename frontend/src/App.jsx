@@ -272,7 +272,7 @@ function App() {
         setDownloadModal(prev => ({ ...prev, progress: 100 }))
         addToast(t("app.toasts.payload_installed", "{{fileName}} installed", { fileName: p.filename }))
         refreshPayloads()
-      } else throw new Error(data?.message || t("app.toasts.install_failed", "Install failed"))
+      } else throw new Error(data?.message || t("app.toasts.install_failed", "Installation failed"))
     } catch (e) { addToast(e.message || t("app.toasts.install_failed", "Installation failed"), 'error') }
     setTimeout(() => setDownloadModal({ show: false }), 800)
   }
