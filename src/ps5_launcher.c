@@ -1,5 +1,6 @@
 #include "ps5_launcher.h"
 #include "pldmgr.h"
+#include "history_mgr.h"
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -80,6 +81,9 @@ int ps5_launch_elf(const char *path) {
 
   close(sock);
   close(fd);
+  if (!error) {
+    history_mgr_add(path);
+  }
   return error ? -1 : 0;
 }
 

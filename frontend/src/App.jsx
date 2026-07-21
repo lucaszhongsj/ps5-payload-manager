@@ -67,6 +67,7 @@ function App() {
   const [version, setVersion] = useState('Loading...')
   const [loading, setLoading] = useState(false)
   const [activeLoadingName, setActiveLoadingName] = useState('')
+  const [launchHistory, setLaunchHistory] = useState([])
   const [toasts, setToasts] = useState([])
   const [loadingPayloads, setLoadingPayloads] = useState(true)
   const [downloadModal, setDownloadModal] = useState({ show: false, name: '', progress: 0 })
@@ -170,7 +171,15 @@ function App() {
     } else if (retryCount < 5) {
       setTimeout(() => refreshPayloads(retryCount + 1), 1000)
     } else {
+      setPayloads([])
       setLoadingPayloads(false)
+    }
+  }
+
+  const refreshHistory = async () => {
+    const data = await api('/history_list')
+    if (data?.history) {
+      setLaunchHistory(data.history)
     }
   }
 
@@ -200,6 +209,7 @@ function App() {
       const res = await fetch(`/loadpayload:${safePath}`)
       if (!res.ok) throw new Error(`${t("app.toasts.launch_failed", "Launch failed")} (${res.status})`)
       addToast(t("app.toasts.payload_launched", "{{name}} launched", { name }))
+      refreshHistory()
     } catch (e) { addToast(e.message || t("app.toasts.launch_failed", "Launch failed"), "error") }
     setTimeout(() => {
       setLoading(false)
@@ -351,6 +361,7 @@ function App() {
       } else {
         refreshPayloads()
         refreshConfig()
+        refreshHistory()
       }
     }
     init()
@@ -551,6 +562,7 @@ function App() {
                 sourceName={config.MULTI_SOURCES_ENABLED ? (payloadMeta[p.split('/').pop()]?.source_name || null) : null}
                 version={payloadMeta[p.split('/').pop()]?.version || null}
                 isFavorite={favoritePayloads.includes(p)}
+                isLaunched={launchHistory.includes(p)}
                 isEditMode={isFavoriteEditMode}
                 onMoveFavorite={moveFavorite}
                 canMoveLeft={activeFavorites.indexOf(p) > 0}

@@ -36,6 +36,7 @@
 
 #define ROUTE_PROCESSES_LIST "/processes_list"
 #define ROUTE_PROCESS_KILL "/process_kill"
+#define ROUTE_HISTORY_LIST "/history_list"
 
 #define MENU_VERSION "0.4.2"
 #define AUTOLOAD_CONFIG_PATH "/data/pldmgr/autoload.txt"

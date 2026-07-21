@@ -18,7 +18,9 @@
 #include "config.h"
 #include "payload_mgr.h"
 #include "repository.h"
+#include "sha256.h"
 #include "sources.h"
+#include "history_mgr.h"
 #include "process_mgr.h"
 #include "ps5_launcher.h"
 
@@ -122,6 +124,7 @@ static int is_noisy_route(const char *url) {
     if (strcmp(url, ROUTE_GET_CONFIG) == 0) return 1;
     if (strcmp(url, ROUTE_REPO_LIST) == 0) return 1;
     if (strcmp(url, ROUTE_PROCESSES_LIST) == 0) return 1;
+    if (strcmp(url, ROUTE_HISTORY_LIST) == 0) return 1;
     if (strcmp(url, "/events") == 0) return 1;
     return 0;
 }
@@ -614,6 +617,21 @@ enum MHD_Result http_on_request(void *cls, struct MHD_Connection *conn,
         size_t len = process_list_json(resp_buf, RESPONSE_BUFFER_SIZE);
         resp = MHD_create_response_from_buffer(len, (void *)resp_buf, MHD_RESPMEM_MUST_FREE);
         MHD_add_response_header(resp, "Content-Type", "application/json");
+    } else if (strcmp(url, ROUTE_HISTORY_LIST) == 0) {
+        char *json = malloc(8192);
+        if (json) {
+            size_t len = history_mgr_to_json(json, 8192);
+            resp = MHD_create_response_from_buffer(len, (void *)json, MHD_RESPMEM_MUST_FREE);
+            MHD_add_response_header(resp, "Content-Type", "application/json");
+            add_cors_headers(resp);
+            return MHD_queue_response(conn, MHD_HTTP_OK, resp);
+        } else {
+            const char *err = "{\"error\":\"Memory allocation failed\"}";
+            resp = MHD_create_response_from_buffer(strlen(err), (void *)err, MHD_RESPMEM_MUST_COPY);
+            MHD_add_response_header(resp, "Content-Type", "application/json");
+            add_cors_headers(resp);
+            return MHD_queue_response(conn, MHD_HTTP_INTERNAL_SERVER_ERROR, resp);
+        }
     } else if (strcmp(url, ROUTE_PROCESS_KILL) == 0) {
         const char *pid_str = MHD_lookup_connection_value(conn, MHD_GET_ARGUMENT_KIND, "pid");
         if (!pid_str) {

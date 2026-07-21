@@ -1,14 +1,16 @@
 import React from 'react'
-import { Loader2, Globe, Star, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Loader2, Globe, Star, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react'
 import PayloadName from './PayloadName'
 import { cn } from '../../utils/helpers'
 
-const PayloadButton = ({ path, onClick, isLoading, sourceName, version, isFavorite, isEditMode, onMoveFavorite, canMoveLeft, canMoveRight }) => {
+const PayloadButton = ({ path, onClick, isLoading, sourceName, version, isFavorite, isLaunched, isEditMode, onMoveFavorite, canMoveLeft, canMoveRight }) => {
+  const { t } = useTranslation()
   return (
     <button
       onClick={onClick}
       disabled={isLoading}
-      className="group glass-card p-6 rounded-ps-xl flex flex-col border border-white/5 hover:border-ps-blue hover:bg-ps-blue/5 transition-all text-left relative overflow-hidden"
+      className="group glass-card p-6 rounded-ps-xl flex flex-col border border-white/5 hover:border-ps-blue hover:bg-ps-blue/5 transition-all text-left relative"
     >
       <div className="flex items-start justify-between w-full z-10">
         <PayloadName path={path} version={version} className="text-white text-xl" stacked />
@@ -21,6 +23,14 @@ const PayloadButton = ({ path, onClick, isLoading, sourceName, version, isFavori
               )}
             >
               <Star className={cn("w-5 h-5", isFavorite && "fill-yellow-400")} />
+            </div>
+          )}
+          {isLaunched && !isEditMode && !isLoading && (
+            <div className="group/tooltip relative p-1 text-green-400">
+              <CheckCircle2 className="w-5 h-5" />
+              <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-ps-black border border-white/10 shadow-lg text-xs font-bold text-white rounded opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                {t("app.dashboard.launched_tooltip", "Launched recently")}
+              </div>
             </div>
           )}
           {isLoading && <Loader2 className="w-6 h-6 animate-spin text-ps-blue" />}
@@ -57,7 +67,7 @@ const PayloadButton = ({ path, onClick, isLoading, sourceName, version, isFavori
           </button>
         </div>
       )}
-      <div className="absolute inset-0 bg-ps-blue/0 group-hover:bg-ps-blue/5 transition-colors z-0 pointer-events-none" />
+      <div className="absolute inset-0 rounded-ps-xl bg-ps-blue/0 group-hover:bg-ps-blue/5 transition-colors z-0 pointer-events-none" />
     </button>
   )
 }
