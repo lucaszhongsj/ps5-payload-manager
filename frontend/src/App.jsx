@@ -536,7 +536,7 @@ function App() {
             
             // Extract translations to variables for i18next-parser compatibility
             const txtFavorites = t("app.dashboard.favorites", "Favorites")
-            const txtAllPayloads = t("app.dashboard.allPayloads", "All Payloads")
+            const txtOthers = t("app.dashboard.others", "Others")
 
             const gridCols = cn(
               "grid gap-4 md:gap-6 transition-all",
@@ -616,7 +616,7 @@ function App() {
                           {activeFavorites.map(makeCard)}
                         </div>
                         <div className="border-t border-white/5 pt-8">
-                          <p className="text-sm font-bold tracking-widest uppercase text-zinc-500 mb-4">{txtAllPayloads}</p>
+                          <p className="text-sm font-bold tracking-widest uppercase text-zinc-500 mb-4">{txtOthers}</p>
                           <div className={gridCols}>
                             {unfavorited.map(makeCard)}
                           </div>
